@@ -1,0 +1,10 @@
+LICENSE.txt
+miso.desktop
+setup.py
+MISO.egg-info/PKG-INFO
+MISO.egg-info/SOURCES.txt
+MISO.egg-info/dependency_links.txt
+MISO.egg-info/entry_points.txt
+MISO.egg-info/requires.txt
+MISO.egg-info/top_level.txt
+miso/miso.py

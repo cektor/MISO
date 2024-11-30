@@ -1,0 +1,4 @@
+#!/bin/bash
+miso.py usr/bin/
+miso.desktop usr/share/applications/
+debian/misolo.png /usr/share/icons/hicolor/48x48/apps/

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Name=MISO
+Comment=ISO Image MD5 | SHA256 Verifier Tool
+Exec=python3 /usr/bin/miso.py
+Icon=/usr/share/icons/hicolor/48x48/apps/misolo.png
+Terminal=false
+Type=Application
+Categories=Utility
+
+Name[tr_TR]=MISO

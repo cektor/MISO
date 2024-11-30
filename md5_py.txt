@@ -1,0 +1,311 @@
+import sys
+import hashlib
+import json
+import os
+from PyQt6.QtWidgets import (
+    QApplication, QWidget, QLabel, QLineEdit, QPushButton, QFileDialog, QMessageBox, QVBoxLayout, QProgressBar, QHBoxLayout
+)
+from PyQt6.QtCore import Qt, QVariantAnimation
+from PyQt6.QtGui import QColor, QPixmap, QIcon
+
+class MD5Checker(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.app_data_dir = self.get_app_data_dir()  # Kullanıcı verileri için dizin
+        self.theme_file_path = os.path.join(self.app_data_dir, 'theme_preference.json')
+
+        # Dizin yoksa oluşturulacak
+        if not os.path.exists(self.app_data_dir):
+            os.makedirs(self.app_data_dir)
+
+        self.dark_mode = self.load_theme_preference()  # Kullanıcı tercihini yükle
+        self.init_ui()
+        self.last_used_files = {"iso": "", "md5": ""}
+
+    def init_ui(self):
+        self.setWindowTitle("M-ISO Hash")
+        self.resize(450, 500)  # Pencereyi biraz büyütüyoruz, çünkü progress bar ekleyeceğiz.
+        self.apply_theme()
+
+        # Logo ekleme
+        self.logo_label = QLabel(self)
+        logo_path = self.get_logo_path()  # Logo dosyasının yolu platforma göre belirleniyor
+        logo_pixmap = QPixmap(logo_path)
+        if not logo_pixmap.isNull():
+            self.logo_label.setPixmap(logo_pixmap)
+        else:
+            self.logo_label.setText("Logo Bulunamadı!")
+        self.logo_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        # Widget elemanları
+        self.label_iso = QLabel("ISO dosyasını seçin:")
+        self.line_edit_iso = QLineEdit()
+        self.line_edit_iso.setPlaceholderText("ISO dosyasını seçin.")
+        self.line_edit_iso.setReadOnly(True)  # Kilitli yapıyoruz
+        self.button_browse_iso = QPushButton("Gözat")
+        self.animate_button(self.button_browse_iso)
+
+        self.label_md5 = QLabel("MD5 dosyasını seçin:")
+        self.line_edit_md5_file = QLineEdit()
+        self.line_edit_md5_file.setPlaceholderText("MD5 dosyasını seçin")
+        self.line_edit_md5_file.setReadOnly(True)  # Kilitli yapıyoruz
+        self.button_browse_md5 = QPushButton("Gözat")
+        self.animate_button(self.button_browse_md5)
+
+        self.label_expected_md5 = QLabel("Beklenen MD5 değeri:")
+        self.line_edit_md5 = QLineEdit()
+        self.line_edit_md5.setReadOnly(True)  # Kilitli yapıyoruz
+
+        self.button_check = QPushButton("Kontrol Et")
+        self.animate_button(self.button_check)
+
+        self.button_view_md5 = QPushButton("MD5 İçeriğini Görüntüle")
+        self.animate_button(self.button_view_md5)
+
+        self.button_copy_result = QPushButton("Sonuçları Panoya Kopyala")
+        self.animate_button(self.button_copy_result)
+
+        self.button_switch_theme = QPushButton("Tema Değiştir")
+        self.button_switch_theme.clicked.connect(self.switch_theme)
+        self.animate_button(self.button_switch_theme)
+
+        # Progres Bar
+        self.progress_bar = QProgressBar(self)
+        self.progress_bar.setRange(0, 100)
+        self.progress_bar.setValue(0)
+        self.progress_bar.setTextVisible(True)
+
+        # Layout
+        layout = QVBoxLayout()
+        layout.addWidget(self.logo_label)  # Logo ekleniyor
+        layout.addWidget(self.label_iso)
+        layout.addWidget(self.line_edit_iso)
+        layout.addWidget(self.button_browse_iso)
+        layout.addWidget(self.label_md5)
+        layout.addWidget(self.line_edit_md5_file)
+        layout.addWidget(self.button_browse_md5)
+        layout.addWidget(self.label_expected_md5)
+        layout.addWidget(self.line_edit_md5)
+        layout.addWidget(self.button_check)
+        layout.addWidget(self.button_view_md5)
+        layout.addWidget(self.button_copy_result)
+        layout.addWidget(self.button_switch_theme)  # Tema değiştirme butonunu ekliyoruz.
+        layout.addWidget(self.progress_bar)
+
+        self.setLayout(layout)
+
+        # Signal-Slot bağlantıları
+        self.button_browse_iso.clicked.connect(self.browse_iso_file)
+        self.button_browse_md5.clicked.connect(self.browse_md5_file)
+        self.button_check.clicked.connect(self.check_md5)
+        self.button_view_md5.clicked.connect(self.view_md5_content)
+        self.button_copy_result.clicked.connect(self.copy_result_to_clipboard)
+
+        self.setAcceptDrops(False)
+
+    def switch_theme(self):
+        """Tema değiştirme fonksiyonu."""
+        self.dark_mode = not self.dark_mode
+        self.apply_theme()
+        self.save_theme_preference()  # Tema değiştiğinde kaydet
+
+    def apply_theme(self):
+        """Tema renklerini uygula."""
+        if self.dark_mode:
+            theme = """
+                QWidget {
+                    background-color: #363636;
+                    color: #FFCB08;
+                }
+                QLabel {
+                    font-size: 14px;
+                    font-weight: bold;
+                    color: #FFCB08;
+                }
+                QLineEdit {
+                    background-color: #252525;
+                    border: 2px solid #FFCB08;
+                    border-radius: 5px;
+                    color: #FFCB08;
+                    padding: 5px;
+                }
+                QPushButton {
+                    background-color: #252525;
+                    color: white;  # Yazı rengini beyaz yapıyoruz
+                    border: 2px solid #FFCB08;
+                    border-radius: 5px;
+                    font-weight: bold;
+                    padding: 5px;
+                }
+                QPushButton:hover {
+                    background-color: #FFCB08;
+                    color: #363636;
+                }
+            """
+        else:
+            theme = """
+                QWidget {
+                    background-color: #FFFFFF;
+                    color: #000000;
+                }
+                QLabel {
+                    font-size: 14px;
+                    font-weight: bold;
+                    color: #000000;
+                }
+                QLineEdit {
+                    background-color: #F0F0F0;
+                    border: 2px solid #000000;
+                    border-radius: 5px;
+                    color: #000000;
+                    padding: 5px;
+                }
+                QPushButton {
+                    background-color: #F0F0F0;
+                    color: white;  # Yazı rengini beyaz yapıyoruz
+                    border: 2px solid #000000;
+                    border-radius: 5px;
+                    font-weight: bold;
+                    padding: 5px;
+                }
+                QPushButton:hover {
+                    background-color: #000000;
+                    color: #FFFFFF;
+                }
+            """
+        self.setStyleSheet(theme)
+
+    def save_theme_preference(self):
+        """Tema tercihini dosyaya kaydet."""
+        try:
+            with open(self.theme_file_path, 'w') as f:
+                json.dump({'dark_mode': self.dark_mode}, f)
+        except Exception as e:
+            print(f"Tema tercihi kaydedilemedi: {e}")
+
+    def load_theme_preference(self):
+        """Tema tercihini dosyadan yükle."""
+        try:
+            if os.path.exists(self.theme_file_path):
+                with open(self.theme_file_path, 'r') as f:
+                    preferences = json.load(f)
+                    return preferences.get('dark_mode', True)  # Varsayılan olarak karanlık mod
+            else:
+                print(f"Temayı yüklemek için dosya bulunamadı: {self.theme_file_path}")
+                return True  # Varsayılan olarak karanlık mod
+        except Exception as e:
+            print(f"Tema tercihi yüklenemedi: {e}")
+            return True  # Varsayılan olarak karanlık mod
+
+    def get_app_data_dir(self):
+        """Platforma göre kullanıcı verisi dizinini döndür."""
+        if sys.platform == "win32":
+            return os.path.join(os.getenv("APPDATA"), "M-ISO")
+        elif sys.platform == "darwin":
+            return os.path.join(os.getenv("HOME"), "Library", "Application Support", "M-ISO")
+        else:
+            return os.path.join(os.getenv("HOME"), ".local", "share", "M-ISO")
+
+    def get_logo_path(self):
+        """Platforma göre logo dosyasının yolunu döndür."""
+        logo_path = os.path.join(self.app_data_dir, "misolo.png")
+        if not os.path.exists(logo_path):  # Eğer logo yoksa, varsayılan bir logo kullan
+            logo_path = "default_misolo.png"  # Varsayılan logo dosyası
+        return logo_path
+
+    def browse_iso_file(self):
+        """ISO dosyasını seçmek için dosya diyalogu."""
+        file_path, _ = QFileDialog.getOpenFileName(self, "ISO Dosyasını Seçin", "", "ISO Dosyası (*.iso);;Tüm Dosyalar (*)")
+        if file_path:
+            self.line_edit_iso.setText(file_path)
+            self.last_used_files["iso"] = file_path  # Son kullanılan dosyayı kaydet
+
+    def browse_md5_file(self):
+        """MD5 dosyasını seçmek için dosya diyalogu."""
+        file_path, _ = QFileDialog.getOpenFileName(self, "MD5 Dosyasını Seçin", "", "Tüm Dosyalar (*)")
+        if file_path:
+            self.line_edit_md5_file.setText(file_path)
+            self.last_used_files["md5"] = file_path  # Son kullanılan dosyayı kaydet
+
+    def check_md5(self):
+        """MD5 dosyasının kontrolü."""
+        iso_path = self.line_edit_iso.text()
+        md5_file_path = self.line_edit_md5_file.text()
+
+        if not iso_path or not md5_file_path:
+            QMessageBox.warning(self, "Eksik Bilgi", "Lütfen ISO ve MD5 dosyasını seçin.")
+            return
+
+        # MD5 dosyasını oku
+        try:
+            with open(md5_file_path, 'r') as file:
+                expected_md5 = file.read().strip()
+        except Exception as e:
+            QMessageBox.warning(self, "Dosya Hatası", f"MD5 dosyası okunamadı: {e}")
+            return
+
+        # ISO dosyasının MD5 hash'ini hesapla
+        try:
+            self.progress_bar.setValue(0)  # Progres barı sıfırla
+            hash_md5 = hashlib.md5()
+            with open(iso_path, "rb") as f:
+                file_size = os.path.getsize(iso_path)
+                bytes_read = 0
+                while chunk := f.read(8192):  # 8 KB okuma
+                    hash_md5.update(chunk)
+                    bytes_read += len(chunk)
+                    progress = int((bytes_read / file_size) * 100)
+                    self.progress_bar.setValue(progress)
+            calculated_md5 = hash_md5.hexdigest().upper()
+        except Exception as e:
+            QMessageBox.warning(self, "Dosya Hatası", f"ISO dosyası okunamadı: {e}")
+            return
+
+        # Sonuçları kontrol et
+        if calculated_md5 == expected_md5.upper():
+            QMessageBox.information(self, "Başarılı", "MD5 değerleri uyuyor!")
+        else:
+            QMessageBox.warning(self, "Hata", "MD5 değerleri uyumsuz!")
+
+    def view_md5_content(self):
+        """MD5 dosyasının içeriğini görüntüle."""
+        md5_file_path = self.line_edit_md5_file.text()
+        if not md5_file_path:
+            QMessageBox.warning(self, "Eksik Dosya", "Lütfen MD5 dosyasını seçin.")
+            return
+
+        try:
+            with open(md5_file_path, 'r') as file:
+                content = file.read()
+            QMessageBox.information(self, "MD5 İçeriği", content)
+        except Exception as e:
+            QMessageBox.warning(self, "Dosya Hatası", f"MD5 dosyası açılamadı: {e}")
+
+    def copy_result_to_clipboard(self):
+        """Sonuçları panoya kopyala."""
+        iso_path = self.line_edit_iso.text()
+        md5_file_path = self.line_edit_md5_file.text()
+
+        if not iso_path or not md5_file_path:
+            QMessageBox.warning(self, "Eksik Bilgi", "ISO veya MD5 dosyasını seçin.")
+            return
+
+        result = f"ISO Dosyası: {iso_path}\nMD5 Dosyası: {md5_file_path}"
+        QApplication.clipboard().setText(result)
+        QMessageBox.information(self, "Sonuç Kopyalandı", "Sonuçlar panoya kopyalandı!")
+
+    def animate_button(self, button):
+        """Buton animasyonu ekle."""
+        animation = QVariantAnimation()
+        animation.setStartValue(1)
+        animation.setEndValue(1.1)
+        animation.setDuration(500)
+        animation.setLoopCount(1)
+        animation.valueChanged.connect(lambda value: button.setStyleSheet(f"font-size: {value * 10}px;"))
+        animation.start()
+
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    window = MD5Checker()
+    window.show()
+    sys.exit(app.exec())

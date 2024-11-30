@@ -1,5 +1,0 @@
-# debian/pybuild
-
-# py3distutils'yi kullanacağız
-export PYBUILD_SYSTEM=py3distutils
-

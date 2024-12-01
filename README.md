@@ -1,5 +1,5 @@
 # MISO
-ISO MD5 | SHA-256 Verifier Tool. Graphical User Interface and Cross Platform Operational
+ISO MD5 | SHA-256 Verifier CheckSum Tool. Graphical User Interface and Cross Platform Operational
 
 <h1 align="center">MISO Logo</h1>
 

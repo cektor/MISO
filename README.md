@@ -1,3 +1,7 @@
+<a href="https://github.com/pedromxavier/flag-badges">
+    <img src="https://raw.githubusercontent.com/pedromxavier/flag-badges/main/badges/TR.svg" alt="made in TR">
+</a>
+
 # MISO
 ISO MD5 | SHA-256 Verifier CheckSum Tool. Graphical User Interface and Cross Platform Operational
 
